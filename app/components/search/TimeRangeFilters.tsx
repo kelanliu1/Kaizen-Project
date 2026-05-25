@@ -45,6 +45,7 @@ export function TimeRangeFilters() {
   const form = useFormContext<FormValues>();
   const startDate = form.watch("startDate");
   const endDate = form.watch("endDate");
+  const endCalendarMonth = endDate && endDate >= startDate ? endDate : startDate;
 
   const startTimeOptions = useMemo(
     () => getTimeOptions(startDate),
@@ -157,6 +158,7 @@ export function TimeRangeFilters() {
                   <Calendar
                     mode="single"
                     selected={field.value}
+                    defaultMonth={endCalendarMonth}
                     onSelect={(value) => {
                       if (value) {
                         field.onChange(value);

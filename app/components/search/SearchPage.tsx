@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/shared/ui/sheet"
 import { roundToNearest30Minutes } from "@/lib/times.ts";
 import { API } from "@/server/api";
 import { addDays, addHours, format } from "date-fns";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useForm } from "react-hook-form";
 
@@ -26,9 +26,35 @@ export function SearchPage() {
 
   const filterOptions = API.getFilterOptions();
 
-  // Initialize form with default values
+  const STORAGE_KEY = "kaizen-search-filters";
+
+  function loadSavedFilters(): Partial<FormValues> | null {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const saved = JSON.parse(raw);
+      // Rehydrate Date objects from ISO strings
+      if (saved.startDate) saved.startDate = new Date(saved.startDate);
+      if (saved.endDate) saved.endDate = new Date(saved.endDate);
+      return saved;
+    } catch {
+      return null;
+    }
+  }
+
+  const saved = loadSavedFilters();
+
   const form = useForm<FormValues>({
-    defaultValues: {
+    defaultValues: saved ? {
+      startDate: saved.startDate ?? defaultStart,
+      startTime: saved.startTime ?? format(defaultStart, "HH:mm"),
+      endDate: saved.endDate ?? defaultEnd,
+      endTime: saved.endTime ?? format(defaultEnd, "HH:mm"),
+      minPassengers: saved.minPassengers ?? 1,
+      classifications: saved.classifications ?? filterOptions.classifications,
+      makes: saved.makes ?? filterOptions.makes,
+      price: saved.price ?? [10, filterOptions.maxPrice],
+    } : {
       startDate: defaultStart,
       startTime: format(defaultStart, "HH:mm"),
       endDate: defaultEnd,
@@ -39,6 +65,16 @@ export function SearchPage() {
       price: [10, filterOptions.maxPrice],
     },
   });
+
+  // Persist filter state to sessionStorage on every change
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+      } catch {}
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   const filters = (
     <ErrorBoundary

@@ -17,6 +17,60 @@ import { FilterOptions } from "@/server/api";
 import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 
+function PassengerField() {
+  const form = useFormContext<FormValues>();
+  const passengers = form.watch("minPassengers");
+  const [passengerInput, setPassengerInput] = useState(String(passengers));
+  const [passengerFocused, setPassengerFocused] = useState(false);
+
+  if (String(passengers) !== passengerInput && !passengerFocused) {
+    setPassengerInput(String(passengers));
+  }
+
+  const commitPassengerInput = (raw: string) => {
+    let val = parseInt(raw, 10);
+    if (isNaN(val)) val = 1;
+    val = Math.max(1, Math.min(val, 10));
+    setPassengerInput(String(val));
+    form.setValue("minPassengers", val);
+  };
+
+  return (
+    <FormField
+      control={form.control}
+      name="minPassengers"
+      render={({ field }) => (
+        <FormItem className="space-y-3">
+          <div className="flex w-full items-baseline justify-between mb-4">
+            <FormLabel>Passengers</FormLabel>
+            <Input
+              data-passenger-input
+              type="text"
+              inputMode="numeric"
+              className="w-12 h-7 text-sm text-center p-0"
+              value={passengerInput}
+              onChange={(e) => setPassengerInput(e.target.value)}
+              onFocus={() => setPassengerFocused(true)}
+              onBlur={(e) => { setPassengerFocused(false); commitPassengerInput(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === "Enter") commitPassengerInput(passengerInput); }}
+            />
+          </div>
+          <FormControl>
+            <Slider
+              min={1}
+              max={10}
+              step={1}
+              value={[field.value]}
+              onValueChange={(value) => field.onChange(value[0])}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
 export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOptions }) {
   const form = useFormContext<FormValues>();
 
@@ -110,34 +164,25 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
           </FormItem>
         )}
       />
-      <FormField
-        control={form.control}
-        name="minPassengers"
-        render={({ field }) => (
-          <FormItem className="space-y-3">
-            <div className="flex w-full items-baseline justify-between mb-4">
-              <FormLabel>Passengers</FormLabel>
-              <div className="text-sm">{field.value}</div>
-            </div>
-            <FormControl>
-              <Slider
-                min={1}
-                max={10}
-                step={1}
-                value={[field.value]}
-                onValueChange={(value) => field.onChange(value[0])}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      <PassengerField />
       <FormField
         control={form.control}
         name="classifications"
         render={({ field }) => (
           <FormItem className="space-y-3">
-            <FormLabel>Class</FormLabel>
+            <div className="flex items-baseline justify-between">
+              <FormLabel>Class</FormLabel>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                data-clear="classifications"
+                onClick={() => form.setValue("classifications", [])}
+              >
+                Clear all
+              </Button>
+            </div>
             <FormControl>
               <ToggleGroup
                 type="multiple"
@@ -165,7 +210,19 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
         name="makes"
         render={({ field }) => (
           <FormItem className="space-y-3">
-            <FormLabel>Make</FormLabel>
+            <div className="flex items-baseline justify-between">
+              <FormLabel>Make</FormLabel>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs"
+                data-clear="makes"
+                onClick={() => form.setValue("makes", [])}
+              >
+                Clear all
+              </Button>
+            </div>
             <FormControl>
               <ToggleGroup
                 type="multiple"
