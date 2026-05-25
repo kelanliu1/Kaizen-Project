@@ -25,3 +25,19 @@ We audited the codebase for issues that would confuse a new developer or introdu
 - **Verbose variable names.** `initialStartDateAndTime` / `initialEndDateAndTime` shortened to `defaultStart` / `defaultEnd` since the context already makes the meaning clear.
 - **Vague function name.** `combineDateTime` renamed to `setTimeOnDate` to better describe what it does (sets hours/minutes from a time string onto a Date).
 - **Unused `key` prop.** `VehicleListItem` had `key={vehicle.id}` on its inner `<Card>`, but the actual list key is applied by the parent `.map()` in `VehicleList`. Removed the redundant prop.
+
+## 3. UX Callouts
+
+- **Sliders lack text input alternatives.** The price slider originally had no editable text fields, forcing users to drag to set values — imprecise and frustrating. We added editable inputs for the price filter, but the passenger slider still has the same problem and should get one too.
+- **Class and Make filters need a "Clear All" option.** The "Reset all" button toggles every option ON, but there's no way to clear all selections and start fresh. Users who want only one or two specific makes have to manually unclick everything else, which is tedious. A "Clear All" button (or toggling the current button to deselect all) would let users opt-in to exactly what they want.
+- **Drop-off date picker doesn't follow the pick-up date.** If a user selects a start date a month in the future, the end date picker still opens to the current month. The end date picker should default to showing the same month as the selected start date so users don't have to navigate forward manually.
+- **Filters are lost on back navigation.** Clicking "Book Now" navigates to the review page, and hitting the browser back button resets all filters to defaults. Search state should be preserved (e.g. via URL query params or session storage) so users can return to their filtered results without re-entering everything.
+
+## 4. UI/UX Callouts by Claude
+
+- **No result count.** When filters narrow the list, users have no "X vehicles found" indicator — they just see fewer cards with no context on how restrictive their filters are.
+- **No sorting.** Search results have no way to sort by price, year, or passenger count. Users scanning for the cheapest option have to visually scan the entire list.
+- **Only hourly rate shown in search results, not estimated total.** For a 4-day rental, seeing "$45/hr" is less useful than also seeing "~$4,320 total." Users have to do mental math to compare.
+- **Time picker is a raw text field.** Users have to type `HH:mm` manually with no dropdown or preset intervals (e.g. every 30 minutes). Easy to misformat.
+- **No active filter indicators on mobile.** Filters are behind a Sheet drawer, but there's no badge or count showing how many filters are active — users forget what they've set.
+- **Confirm reservation is a dead button.** `handleConfirm` logs an error to the console with no user feedback. At minimum it should show a toast or disabled tooltip explaining it's not yet implemented.
