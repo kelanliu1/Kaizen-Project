@@ -5,6 +5,7 @@ import {
   getVehicleById,
   getVehicles,
 } from "./data_helpers";
+import { calculateDiscount, Discount } from "./discounts";
 
 const parseAndValidateTimeRange = (startTime: string, endTime: string) => {
   const start = DateTime.fromISO(startTime);
@@ -31,11 +32,14 @@ const calculateTotalPrice = (
   hourlyRateCents: number,
 ) => {
   const durationInHours = end.diff(start, "hours").hours || 0;
+  const originalTotal = hourlyRateCents * durationInHours;
+  const discount = calculateDiscount(start, end, hourlyRateCents);
 
   return {
-    totalPriceCents: hourlyRateCents * durationInHours,
+    totalPriceCents: discount ? discount.discountedTotalCents : originalTotal,
     hourlyRateCents,
     durationInHours,
+    discount,
   };
 };
 

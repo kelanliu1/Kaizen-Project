@@ -1,4 +1,5 @@
 import { formatCents } from "@/lib/formatters";
+import { API } from "@/server/api";
 import { Vehicle } from "@/server/data";
 import { useBase64Image } from "@/util/useBase64Image";
 import Link from "next/link";
@@ -21,6 +22,17 @@ export function VehicleListItem({
   });
 
   const imgData = useBase64Image(vehicle.thumbnail_url);
+
+  const quote = API.getQuote({
+    vehicleId: vehicle.id,
+    startTime: startDateTime.toISOString(),
+    endTime: endDateTime.toISOString(),
+  });
+
+  const discount = quote.discount;
+  const effectiveHourlyRate = discount
+    ? Math.round(quote.totalPriceCents / quote.durationInHours)
+    : vehicle.hourly_rate_cents;
 
   return (
     <Card
@@ -54,10 +66,25 @@ export function VehicleListItem({
         </dl>
       </div>
       <div className="md:ml-auto text-center md:text-right flex flex-col justify-center mt-4 md:mt-0">
-        <p className="text-xl font-bold">
-          {formatCents(vehicle.hourly_rate_cents)}
-          <span className="text-sm text-gray-700 font-normal ml-0.5">/hr</span>
-        </p>
+        {discount ? (
+          <>
+            <p className="text-sm text-gray-500 line-through">
+              {formatCents(vehicle.hourly_rate_cents)}/hr
+            </p>
+            <p className="text-xl font-bold">
+              {formatCents(effectiveHourlyRate)}
+              <span className="text-sm text-gray-700 font-normal ml-0.5">/hr</span>
+            </p>
+            <p className="text-xs text-green-700 font-medium mt-0.5">
+              {discount.label}
+            </p>
+          </>
+        ) : (
+          <p className="text-xl font-bold">
+            {formatCents(vehicle.hourly_rate_cents)}
+            <span className="text-sm text-gray-700 font-normal ml-0.5">/hr</span>
+          </p>
+        )}
         <Button asChild className="mt-2 w-full sm:w-auto">
           <Link href={`/review?${bookNowParams.toString()}`}>
             Book now

@@ -94,6 +94,22 @@ function Content() {
               <dt className="text-sm text-gray-600">Duration</dt>
               <dd>{formattedDuration}</dd>
             </div>
+            {quote.discount && (
+              <>
+                <div>
+                  <dt className="text-sm text-gray-600">Subtotal</dt>
+                  <dd className="text-lg">
+                    {formatCents(quote.discount.originalTotalCents)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-green-700">{quote.discount.label}</dt>
+                  <dd className="text-lg text-green-700">
+                    -{formatCents(quote.discount.savingsCents)}
+                  </dd>
+                </div>
+              </>
+            )}
             <div>
               <dt className="text-sm text-gray-600">Total Cost</dt>
               <dd className="text-2xl font-medium tracking-tight">
