@@ -24,17 +24,26 @@ All data is in-memory (no database). The app is effectively client-rendered desp
 
 1. **`app/server/data.ts`** — Static vehicle catalog and reservation fixtures. Prices in cents.
 2. **`app/server/data_helpers.ts`** — Query functions (filter by time, price, classification, etc.).
-3. **`app/server/api.ts`** — Business logic layer (`API` object). Despite living in `server/`, these functions are called directly from client components during render (not via fetch/server actions).
-4. **Client components** (`"use client"`) call `API.*` synchronously in render.
+3. **`app/server/discounts.ts`** — Holiday/long-rental discount logic. Exports `HOLIDAYS`, `isHoliday`, `containsHoliday`, and `calculateDiscount`.
+4. **`app/server/api.ts`** — Business logic layer (`API` object). Despite living in `server/`, these functions are called directly from client components during render (not via fetch/server actions). `getQuote` returns a `PriceQuote` with discount info.
+5. **Client components** (`"use client"`) call `API.*` synchronously in render.
+
+### Discount system
+
+Two mutually exclusive discounts (best price wins):
+- **Holiday** — 17% off total when a holiday falls strictly within the reservation (not on start/end day).
+- **Long rental** — $10/hr off the hourly rate for reservations > 72 hours (3 days).
+
+Holiday list and constants are in `app/server/discounts.ts`. Discounts surface in search results (struck-through rate + label) and the review page (subtotal, discount line, adjusted total).
 
 ### Pages
 
 - `/` → `SearchPage` — date/time pickers + filters sidebar + vehicle results list
-- `/review?id=&start=&end=` → `ReviewPage` — quote + reservation confirmation
+- `/review?id=&start=&end=` → `ReviewPage` — quote + reservation confirmation with discount breakdown
 
 ### Form state
 
-Search uses `react-hook-form` with a shared `FormValues` type (`app/components/search/form.tsx`). The form wraps the entire search page; child components access it via `useFormContext`. Filters reactively update results (no submit button).
+Search uses `react-hook-form` with a shared `FormValues` type (`app/components/search/form.tsx`). The form wraps the entire search page; child components access it via `useFormContext`. Filters reactively update results (no submit button). Price filter has editable text inputs that sync bidirectionally with the range slider.
 
 ### Path aliases
 
@@ -44,8 +53,10 @@ Search uses `react-hook-form` with a shared `FormValues` type (`app/components/s
 
 shadcn/ui components live in `app/components/shared/ui/`. Custom components in `app/components/search/` and `app/components/review/`.
 
-## Known issues & planned work
+## Context docs
 
-See `.context/` for detailed analysis:
-- **`.context/BUG.md`** — Price filter slider bug (max too low + "unlimited" interpretation)
-- **`.context/FEATURE_DESIGN.md`** — Discount system design (holiday 17% off, long rental $10/hr off)
+See `.context/` for detailed analysis and history:
+- **`.context/BUG.md`** — Price filter slider bug diagnosis and fix
+- **`.context/FEATURE_DESIGN.md`** — Discount system design
+- **`.context/REFACTOR.md`** — Refactor audit findings
+- **`.context/DECISIONS.md`** — Key decisions and rationale
