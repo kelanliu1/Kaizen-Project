@@ -16,12 +16,12 @@ import { ErrorBoundary } from "react-error-boundary";
 import { useForm } from "react-hook-form";
 
 export function SearchPage() {
-  const [initialStartDateAndTime] = useState(() =>
+  const [defaultStart] = useState(() =>
     roundToNearest30Minutes(addHours(new Date(), 1)),
   );
 
-  const [initialEndDateAndTime] = useState(() =>
-    addDays(initialStartDateAndTime, 1),
+  const [defaultEnd] = useState(() =>
+    addDays(defaultStart, 1),
   );
 
   const filterOptions = API.getFilterOptions();
@@ -29,13 +29,13 @@ export function SearchPage() {
   // Initialize form with default values
   const form = useForm<FormValues>({
     defaultValues: {
-      startDate: initialStartDateAndTime,
-      startTime: format(initialStartDateAndTime, "HH:mm"),
-      endDate: initialEndDateAndTime,
-      endTime: format(initialEndDateAndTime, "HH:mm"),
+      startDate: defaultStart,
+      startTime: format(defaultStart, "HH:mm"),
+      endDate: defaultEnd,
+      endTime: format(defaultEnd, "HH:mm"),
       minPassengers: 1,
-      classification: filterOptions.classifications,
-      make: filterOptions.makes,
+      classifications: filterOptions.classifications,
+      makes: filterOptions.makes,
       price: [10, filterOptions.maxPrice],
     },
   });

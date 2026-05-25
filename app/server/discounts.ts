@@ -48,6 +48,7 @@ export function containsHoliday(start: DateTime, end: DateTime): boolean {
   return false;
 }
 
+const LONG_RENTAL_MINIMUM_HOURS = 72; // > 3 days
 const LONG_RENTAL_DISCOUNT_CENTS_PER_HOUR = 1000; // $10/hr
 const HOLIDAY_DISCOUNT_RATE = 0.17;
 
@@ -55,12 +56,13 @@ export function calculateDiscount(
   start: DateTime,
   end: DateTime,
   hourlyRateCents: number,
+  durationInHours?: number,
 ): Discount | null {
-  const durationInHours = end.diff(start, "hours").hours || 0;
-  const originalTotalCents = hourlyRateCents * durationInHours;
+  const hours = durationInHours ?? (end.diff(start, "hours").hours || 0);
+  const originalTotalCents = hourlyRateCents * hours;
 
   const holidayEligible = containsHoliday(start, end);
-  const longRentalEligible = durationInHours > 72;
+  const longRentalEligible = hours > LONG_RENTAL_MINIMUM_HOURS;
 
   let holidayDiscount: Discount | null = null;
   let longRentalDiscount: Discount | null = null;
@@ -78,7 +80,7 @@ export function calculateDiscount(
 
   if (longRentalEligible) {
     const effectiveRate = Math.max(hourlyRateCents - LONG_RENTAL_DISCOUNT_CENTS_PER_HOUR, 0);
-    const discountedTotal = effectiveRate * durationInHours;
+    const discountedTotal = effectiveRate * hours;
     longRentalDiscount = {
       type: "long_rental",
       label: "Long Rental ($10/hr off)",

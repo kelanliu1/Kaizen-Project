@@ -33,7 +33,7 @@ const calculateTotalPrice = (
 ) => {
   const durationInHours = end.diff(start, "hours").hours || 0;
   const originalTotal = hourlyRateCents * durationInHours;
-  const discount = calculateDiscount(start, end, hourlyRateCents);
+  const discount = calculateDiscount(start, end, hourlyRateCents, durationInHours);
 
   return {
     totalPriceCents: discount ? discount.discountedTotalCents : originalTotal,
@@ -79,9 +79,8 @@ function searchVehicles(input: {
     priceMax,
   } = input;
 
-  const parsedPriceMin = priceMin;
   const { maxPrice } = getFilterOptions();
-  const parsedPriceMax = priceMax >= maxPrice ? Number.MAX_SAFE_INTEGER : priceMax;
+  const effectivePriceMax = priceMax >= maxPrice ? Number.MAX_SAFE_INTEGER : priceMax;
 
   try {
     const { start, end } = parseAndValidateTimeRange(startTime, endTime);
@@ -92,8 +91,8 @@ function searchVehicles(input: {
       passengerCount,
       classifications,
       makes,
-      priceMinDollars: parsedPriceMin,
-      priceMaxDollars: parsedPriceMax,
+      priceMinDollars: priceMin,
+      priceMaxDollars: effectivePriceMax,
     });
 
     return {

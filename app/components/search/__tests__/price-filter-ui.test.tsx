@@ -24,8 +24,8 @@ function Wrapper({
       endDate: new Date(),
       endTime: "11:00",
       minPassengers: 1,
-      classification: filterOptions.classifications,
-      make: filterOptions.makes,
+      classifications: filterOptions.classifications,
+      makes: filterOptions.makes,
       price: defaultPrice,
     },
   });

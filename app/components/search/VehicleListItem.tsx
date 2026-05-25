@@ -36,7 +36,6 @@ export function VehicleListItem({
 
   return (
     <Card
-      key={vehicle.id}
       className="flex flex-col md:flex-row gap-6 md:gap-8 px-4 md:px-6 py-6"
     >
       <div className="max-w-[8rem] flex items-center mx-auto md:mx-0">

@@ -8,7 +8,7 @@ import {
 } from "./data";
 
 export const getVehicleById = (id: string): Vehicle | undefined => {
-  return VEHICLES.find((car) => car.id === id);
+  return VEHICLES.find((vehicle) => vehicle.id === id);
 };
 
 export const getReservationById = (id: string): Reservation | undefined => {
@@ -32,8 +32,8 @@ export const getAvailableVehicles = ({
   priceMinDollars: number;
   priceMaxDollars: number;
 }) => {
-  return VEHICLES.filter((car) => {
-    const reservations = RESERVATIONS_BY_VEHICLE_ID[car.id] ?? [];
+  return VEHICLES.filter((vehicle) => {
+    const reservations = RESERVATIONS_BY_VEHICLE_ID[vehicle.id] ?? [];
 
     const isAvailableWithinTimeRange = reservations.every((reservation) => {
       return (
@@ -42,14 +42,14 @@ export const getAvailableVehicles = ({
     });
 
     const matchesPrice =
-      car.hourly_rate_cents >= priceMinDollars * 100 &&
-      car.hourly_rate_cents <= priceMaxDollars * 100;
+      vehicle.hourly_rate_cents >= priceMinDollars * 100 &&
+      vehicle.hourly_rate_cents <= priceMaxDollars * 100;
 
-    const matchesClassification = classifications.includes(car.classification);
+    const matchesClassification = classifications.includes(vehicle.classification);
 
-    const matchesMake = makes.includes(car.make);
+    const matchesMake = makes.includes(vehicle.make);
 
-    const matchesPassengerCount = car.max_passengers >= passengerCount;
+    const matchesPassengerCount = vehicle.max_passengers >= passengerCount;
 
     return (
       isAvailableWithinTimeRange &&

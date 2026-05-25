@@ -41,22 +41,20 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
     setMaxInput(String(maxPrice));
   }
 
-  const commitMinInput = (raw: string) => {
+  const commitPriceInput = (raw: string, bound: "min" | "max") => {
+    const fallback = bound === "min" ? SLIDER_MIN : SLIDER_MAX;
     let val = parseInt(raw, 10);
-    if (isNaN(val)) val = SLIDER_MIN;
+    if (isNaN(val)) val = fallback;
     val = Math.round(val / STEP) * STEP;
-    val = Math.max(SLIDER_MIN, Math.min(val, maxPrice));
-    setMinInput(String(val));
-    form.setValue("price", [val, maxPrice]);
-  };
-
-  const commitMaxInput = (raw: string) => {
-    let val = parseInt(raw, 10);
-    if (isNaN(val)) val = SLIDER_MAX;
-    val = Math.round(val / STEP) * STEP;
-    val = Math.max(minPrice, Math.min(val, SLIDER_MAX));
-    setMaxInput(String(val));
-    form.setValue("price", [minPrice, val]);
+    if (bound === "min") {
+      val = Math.max(SLIDER_MIN, Math.min(val, maxPrice));
+      setMinInput(String(val));
+      form.setValue("price", [val, maxPrice]);
+    } else {
+      val = Math.max(minPrice, Math.min(val, SLIDER_MAX));
+      setMaxInput(String(val));
+      form.setValue("price", [minPrice, val]);
+    }
   };
 
   return (
@@ -79,8 +77,8 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
                   value={minInput}
                   onChange={(e) => setMinInput(e.target.value)}
                   onFocus={() => setMinFocused(true)}
-                  onBlur={(e) => { setMinFocused(false); commitMinInput(e.target.value); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") commitMinInput(minInput); }}
+                  onBlur={(e) => { setMinFocused(false); commitPriceInput(e.target.value, "min"); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") commitPriceInput(minInput, "min"); }}
                 />
               </div>
               <span className="text-sm text-muted-foreground">to</span>
@@ -94,8 +92,8 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
                   value={maxFocused ? maxInput : (maxPrice >= SLIDER_MAX ? `${SLIDER_MAX}+` : maxInput)}
                   onChange={(e) => setMaxInput(e.target.value.replace(/\+$/, ""))}
                   onFocus={() => { setMaxFocused(true); setMaxInput(String(maxPrice)); }}
-                  onBlur={(e) => { setMaxFocused(false); commitMaxInput(e.target.value.replace(/\+$/, "")); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") commitMaxInput(maxInput); }}
+                  onBlur={(e) => { setMaxFocused(false); commitPriceInput(e.target.value.replace(/\+$/, ""), "max"); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") commitPriceInput(maxInput, "max"); }}
                 />
               </div>
             </div>
@@ -136,7 +134,7 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
       />
       <FormField
         control={form.control}
-        name="classification"
+        name="classifications"
         render={({ field }) => (
           <FormItem className="space-y-3">
             <FormLabel>Class</FormLabel>
@@ -164,7 +162,7 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
       />
       <FormField
         control={form.control}
-        name="make"
+        name="makes"
         render={({ field }) => (
           <FormItem className="space-y-3">
             <FormLabel>Make</FormLabel>
@@ -200,7 +198,7 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
         className="mt-4"
         disabled={
           form.getValues().minPassengers === 1 &&
-          form.getValues().make === undefined &&
+          form.getValues().makes === undefined &&
           form.getValues().price[0] === 10 &&
           form.getValues().price[1] === filterOptions.maxPrice
         }

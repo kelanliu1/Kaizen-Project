@@ -1,4 +1,4 @@
-import { combineDateTime, FormValues } from "@/components/search/form.tsx";
+import { setTimeOnDate, FormValues } from "@/components/search/form.tsx";
 import { API } from "@/server/api";
 import { useMemo } from "react";
 import { useFormContext } from "react-hook-form";
@@ -11,16 +11,16 @@ export function VehicleList() {
   const endDate = form.watch("endDate");
   const endTime = form.watch("endTime");
   const minPassengers = form.watch("minPassengers");
-  const classifications = form.watch("classification");
-  const makes = form.watch("make");
+  const classifications = form.watch("classifications");
+  const makes = form.watch("makes");
   const price = form.watch("price");
 
   const startDateTime = useMemo(
-    () => combineDateTime(startDate, startTime),
+    () => setTimeOnDate(startDate, startTime),
     [startDate, startTime],
   );
   const endDateTime = useMemo(
-    () => combineDateTime(endDate, endTime),
+    () => setTimeOnDate(endDate, endTime),
     [endDate, endTime],
   );
 

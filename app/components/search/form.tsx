@@ -5,11 +5,11 @@ export interface FormValues {
   endTime: string;
   price: [number, number];
   minPassengers: number;
-  make: string[];
-  classification: string[];
+  makes: string[];
+  classifications: string[];
 }
 
-export const combineDateTime = (date: Date, time: string) => {
+export const setTimeOnDate = (date: Date, time: string) => {
   const [hours, minutes] = time.split(":");
   const combinedDate = new Date(date);
   combinedDate.setHours(parseInt(hours), parseInt(minutes));
