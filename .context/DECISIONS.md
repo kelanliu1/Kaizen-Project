@@ -60,3 +60,33 @@ We audited the codebase for issues that would confuse a new developer or introdu
 - **Optional `durationInHours` parameter on `calculateDiscount`.** This avoids the duplicate calculation but couples the function signature to the caller's optimization. The function still works standalone (computes duration when omitted), so it's backwards-compatible, but the optional param is a mild API smell.
 - **Renamed form fields were a breaking change.** `classification` → `classifications` and `make` → `makes` touched every file that reads form state. Since form state is entirely internal (not in URLs or persisted), this was safe — but if filter state were ever serialized to query params, a rename like this would break bookmarked URLs.
 - **Intentionally skipped several medium/low refactor items** from REFACTOR.md (extracting a `FilterToggleGroup` component, shared test utilities, merging small utility files) to keep the refactor focused on clarity rather than architecture changes.
+
+## 6. If I Had More Time...
+
+### Scalability
+
+- **O(N) linear scans on every lookup.** `getVehicleById` and `getReservationById` use `.find()` on arrays. At scale this is unacceptable — would replace with a `Map<string, Vehicle>` keyed by ID for O(1) lookups, or a proper database with indexed primary keys.
+- **O(N x M) availability check.** `getAvailableVehicles` iterates every vehicle and for each one checks all its reservations for time overlap. With thousands of vehicles and tens of thousands of reservations this becomes a bottleneck. In production, this would be a database query with indexed time-range columns (e.g. a GiST index on `tsrange` in Postgres), not an in-memory filter loop.
+- **`getFilterOptions()` recomputes on every call.** It iterates the full vehicle array 4 times (makes, classifications, passengers, maxPrice) with no caching. It's called from both `searchVehicles` and `SearchPage` on every render. Would memoize the result and invalidate only when the vehicle catalog changes.
+- **No pagination or virtualization.** `VehicleList` renders all vehicles in a single `<ul>`. With hundreds or thousands of results, the DOM becomes bloated and rendering slows to a crawl. Would add cursor-based pagination on the API side and either paginated results or virtual scrolling (e.g. `react-window`) on the UI side.
+- **`API.getQuote` called per vehicle in search results.** Each `VehicleListItem` calls `getQuote` independently, so discount calculations run 12 times on every filter change. Would batch this — either compute discounts in a single pass inside `searchVehicles` and return them alongside the vehicle list, or memoize quote results by `(vehicleId, startTime, endTime)`.
+- **`TODAY` frozen at module load.** `data.ts` computes `DateTime.now().startOf("day")` once when the module loads. If the server runs past midnight, reservation fixtures use a stale date. In production, dynamic dates should be computed per-request, and reservation data should live in a database, not in module-level constants.
+
+### Error handling
+
+- **Silent error swallowing in `searchVehicles`.** The catch block returns `{ vehicles: [] }` — the client can't distinguish "no results" from "server error." Would propagate errors with typed error responses so the UI can show appropriate messaging (empty state vs error state), and add structured logging/telemetry for observability.
+- **No input validation at the API boundary.** `priceMin`, `priceMax`, `passengerCount` accept any number with no checks for negative values, NaN, or inverted ranges. Would add Zod schema validation on all API inputs and return typed validation errors.
+
+### Test coverage
+
+- **Zero component tests for key pages.** `VehicleListItem`, `VehicleList`, and `ReviewPage` have no component tests. Discount display in both search results and the review page is untested end-to-end. Would add integration tests that render these components and verify discount labels, struck-through prices, and quote breakdowns appear correctly.
+- **Error paths never exercised.** `parseAndValidateTimeRange` error cases, `validateReservationAndGetVehicle` with missing vehicles, and the `searchVehicles` catch block are never tested. Would add tests for every error branch to prevent silent regressions.
+
+### UI / accessibility
+
+- **State setters called during render.** The slider→input sync in `AdditionalFilters.tsx` calls `setMinInput`/`setMaxInput` directly in the render body. Works pragmatically but violates React rules and can cause render loops. Would move to `useEffect` with proper dependencies.
+- **Missing `aria-label` on price inputs.** The `$`-prefixed price inputs have no accessible labels connecting them to "min price" / "max price." Screen readers can't identify them.
+- **No metadata in layout.** `layout.tsx` has no `<title>`, Open Graph tags, or viewport meta — bad for SEO and social sharing.
+- **Everything is client-rendered.** All pages are `"use client"` with no SSR or streaming. In production, initial data should be fetched server-side for faster First Contentful Paint, and vehicle search results should use server components or React Server Components with streaming.
+- **Base64 image encoding.** `useBase64Image` encodes vehicle images as base64 strings. Doesn't scale — would switch to CDN-served URLs with `next/image` for lazy loading, responsive sizing, and caching.
+- **Hardcoded `"en-US"` locale.** `formatters.tsx` hardcodes the locale in `Intl.NumberFormat`. Would derive from user locale or app config for i18n support.
