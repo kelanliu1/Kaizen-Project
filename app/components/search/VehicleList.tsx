@@ -24,6 +24,16 @@ export function VehicleList() {
     [endDate, endTime],
   );
 
+  if (endDateTime <= startDateTime) {
+    return (
+      <div className="flex justify-center items-center h-32">
+        <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700" role="alert">
+          Drop-off must be after pick-up. Please adjust your dates or times.
+        </div>
+      </div>
+    );
+  }
+
   const searchResponse = API.searchVehicles({
     startTime: startDateTime.toISOString(),
     endTime: endDateTime.toISOString(),

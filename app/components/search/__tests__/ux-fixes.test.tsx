@@ -4,6 +4,7 @@ import React from "react";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { AdditionalFilters } from "../AdditionalFilters";
 import { TimeRangeFilters } from "../TimeRangeFilters";
+import { VehicleList } from "../VehicleList";
 import { API } from "@/server/api";
 import type { FormValues } from "../form";
 
@@ -273,5 +274,85 @@ describe("Filter state persistence", () => {
 
     // All filter fields should be serializable
     expect(JSON.parse(JSON.stringify(defaults))).toBeTruthy();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// UX Fix 5: Invalid date range error message
+// ─────────────────────────────────────────────────────────────
+
+describe("Invalid date range: error message", () => {
+  function VehicleListWrapper({ defaults }: { defaults?: Partial<FormValues> }) {
+    const form = useForm<FormValues>({
+      defaultValues: {
+        startDate: new Date("2025-06-15"),
+        startTime: "10:00",
+        endDate: new Date("2025-06-16"),
+        endTime: "10:00",
+        minPassengers: 1,
+        classifications: filterOptions.classifications,
+        makes: filterOptions.makes,
+        price: [10, filterOptions.maxPrice],
+        ...defaults,
+      },
+    });
+
+    return (
+      <FormProvider {...form}>
+        <VehicleList />
+      </FormProvider>
+    );
+  }
+
+  it("shows error message when drop-off is before pick-up", () => {
+    const { container } = render(
+      <VehicleListWrapper defaults={{
+        startDate: new Date("2025-06-20"),
+        endDate: new Date("2025-06-15"),
+      }} />,
+    );
+
+    const error = container.querySelectorAll('[role="alert"]');
+    expect(error.length).toBeGreaterThan(0);
+    expect(error[0].textContent).toMatch(/drop-off.*must be after.*pick-up/i);
+  });
+
+  it("shows error message when drop-off equals pick-up (same date and time)", () => {
+    const { container } = render(
+      <VehicleListWrapper defaults={{
+        startDate: new Date("2025-06-20"),
+        endDate: new Date("2025-06-20"),
+      }} />,
+    );
+
+    const error = container.querySelectorAll('[role="alert"]');
+    expect(error.length).toBeGreaterThan(0);
+    expect(error[0].textContent).toMatch(/drop-off.*must be after.*pick-up/i);
+  });
+
+  it("does not show error for valid date range", () => {
+    // Use empty classifications so no VehicleListItems render (avoids fetch in jsdom)
+    const { container } = render(
+      <VehicleListWrapper defaults={{
+        startDate: new Date("2099-06-15"),
+        endDate: new Date("2099-06-20"),
+        classifications: [],
+      }} />,
+    );
+
+    const error = container.querySelectorAll('[role="alert"]');
+    expect(error).toHaveLength(0);
+  });
+
+  it("error has alert role for accessibility", () => {
+    const { container } = render(
+      <VehicleListWrapper defaults={{
+        startDate: new Date("2025-06-20"),
+        endDate: new Date("2025-06-15"),
+      }} />,
+    );
+
+    const alerts = container.querySelectorAll('[role="alert"]');
+    expect(alerts.length).toBeGreaterThan(0);
   });
 });

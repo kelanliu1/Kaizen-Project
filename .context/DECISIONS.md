@@ -32,6 +32,7 @@ We audited the codebase for issues that would confuse a new developer or introdu
 - **Class and Make filters need a "Clear All" option.** The "Reset all" button toggles every option ON, but there's no way to clear all selections and start fresh. Users who want only one or two specific makes have to manually unclick everything else, which is tedious. A "Clear All" button (or toggling the current button to deselect all) would let users opt-in to exactly what they want.
 - **Drop-off date picker doesn't follow the pick-up date.** If a user selects a start date a month in the future, the end date picker still opens to the current month. The end date picker should default to showing the same month as the selected start date so users don't have to navigate forward manually.
 - **Filters are lost on back navigation.** Clicking "Book Now" navigates to the review page, and hitting the browser back button resets all filters to defaults. Search state should be preserved (e.g. via URL query params or session storage) so users can return to their filtered results without re-entering everything.
+- **No validation feedback for invalid date ranges.** If the drop-off date/time is before or equal to the pick-up, the app silently showed an empty result list with no explanation. Users had no idea why results disappeared. Now shows an inline error banner with `role="alert"` when the dates are invalid.
 
 ## 4. UI/UX Callouts by Claude
 
