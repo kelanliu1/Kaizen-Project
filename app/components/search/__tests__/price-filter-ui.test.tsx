@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import React from "react";
 import { useForm, FormProvider } from "react-hook-form";
 import { AdditionalFilters } from "../AdditionalFilters";
@@ -8,10 +8,11 @@ import type { FormValues } from "../form";
 import { VEHICLES } from "@/server/data";
 
 const filterOptions = API.getFilterOptions();
+const DYNAMIC_MAX = filterOptions.maxPrice;
 
 // Wrapper that provides react-hook-form context to AdditionalFilters
 function Wrapper({
-  defaultPrice = [10, 100] as [number, number],
+  defaultPrice = [10, DYNAMIC_MAX] as [number, number],
 }: {
   defaultPrice?: [number, number];
 }) {
@@ -36,19 +37,25 @@ function Wrapper({
 }
 
 // ─────────────────────────────────────────────────────────────
-// DISPLAY LABEL TESTS — "$100+" sentinel in the UI
+// DISPLAY LABEL TESTS
 // ─────────────────────────────────────────────────────────────
 
 describe("Price filter label display", () => {
-  it("FAILS: default price range should NOT show '$100+' (misleading unlimited)", () => {
+  it("default price range shows dynamic max with '+' suffix", () => {
     render(<Wrapper />);
 
-    // The default [10, 100] displays "$100+" — implying "no cap".
-    // This is the root of the user confusion: there IS no way to say "exactly $100".
-    // After the fix, the label at max should say something like "$220+" or "$250+"
-    // and $100 should display as "$100" (a real cap).
-    const matches = screen.queryAllByText(/\$100\+/);
-    expect(matches).toHaveLength(0);
+    // At the dynamic max, the label shows "${max}+"
+    const maxLabel = `$${DYNAMIC_MAX}+`;
+    const matches = screen.queryAllByText(new RegExp(`\\$${DYNAMIC_MAX}\\+`));
+    expect(matches.length).toBeGreaterThan(0);
+  });
+
+  it("$100 now displays as '$100' (a real cap, not unlimited)", () => {
+    render(<Wrapper defaultPrice={[10, 100]} />);
+
+    // $100 should render as "$100" — no "+" suffix
+    expect(screen.getAllByText(/\$100/).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(/\$100\+/)).toHaveLength(0);
   });
 
   it("renders the price label with min and max values", () => {
@@ -58,43 +65,30 @@ describe("Price filter label display", () => {
     expect(screen.getAllByText(/\$80/).length).toBeGreaterThan(0);
   });
 
-  it("shows '$100+' when slider is at max (100)", () => {
-    render(<Wrapper defaultPrice={[10, 100]} />);
-
-    // This documents current behavior: $100 renders as "$100+"
-    expect(screen.getAllByText(/\$100\+/).length).toBeGreaterThan(0);
-  });
-
   it("shows exact dollar amount when slider is below max", () => {
     render(<Wrapper defaultPrice={[10, 90]} />);
 
-    // $90 renders as "$90" (not "$90+")
     expect(screen.getAllByText(/\$90/).length).toBeGreaterThan(0);
     expect(screen.queryAllByText(/\$90\+/)).toHaveLength(0);
   });
 });
 
 // ─────────────────────────────────────────────────────────────
-// SLIDER CONSTRAINT TESTS — The slider physically prevents
-// users from expressing values above $100
+// SLIDER CONSTRAINT TESTS
 // ─────────────────────────────────────────────────────────────
 
 describe("Price slider constraints", () => {
-  it("FAILS: slider max should be high enough to cover the $220/hr C-Class", () => {
+  it("slider max covers the $220/hr C-Class", () => {
     render(<Wrapper />);
 
-    // Radix renders multiple sliders (price range + passengers).
-    // The price RangeSlider has two thumbs; find them via aria-valuemax=100.
     const allSliders = screen.getAllByRole("slider");
     const priceSliders = allSliders.filter(
-      (el) => el.getAttribute("aria-valuemax") === "100",
+      (el) => el.getAttribute("aria-valuemax") === String(DYNAMIC_MAX),
     );
 
-    // The max thumb of the price slider
     const maxThumb = priceSliders[priceSliders.length - 1];
     const ariaMax = Number(maxThumb.getAttribute("aria-valuemax"));
 
-    // The most expensive vehicle is $220/hr. The slider max should accommodate it.
     expect(ariaMax).toBeGreaterThanOrEqual(220);
   });
 
@@ -105,56 +99,48 @@ describe("Price slider constraints", () => {
       (el) => el.getAttribute("aria-valuemin") === "10",
     );
     expect(priceSliders.length).toBeGreaterThan(0);
-    expect(priceSliders[0].getAttribute("aria-valuemin")).toBe("10");
   });
 
-  it("renders price slider max thumb with aria-valuemax=100 (current buggy state)", () => {
+  it("renders price slider max thumb with dynamic aria-valuemax", () => {
     render(<Wrapper />);
     const allSliders = screen.getAllByRole("slider");
     const priceMaxSliders = allSliders.filter(
-      (el) => el.getAttribute("aria-valuemax") === "100",
+      (el) => el.getAttribute("aria-valuemax") === String(DYNAMIC_MAX),
     );
-    // Documents current state: max is 100
     expect(priceMaxSliders.length).toBeGreaterThan(0);
   });
 
-  it("renders default values [10, 100] on the price slider thumbs", () => {
+  it("renders default values [10, dynamic max] on the price slider thumbs", () => {
     render(<Wrapper />);
     const allSliders = screen.getAllByRole("slider");
     const priceSliders = allSliders.filter(
-      (el) => el.getAttribute("aria-valuemax") === "100",
+      (el) => el.getAttribute("aria-valuemax") === String(DYNAMIC_MAX),
     );
 
     const values = priceSliders.map((el) =>
       Number(el.getAttribute("aria-valuenow")),
     );
     expect(values).toContain(10);
-    expect(values).toContain(100);
+    expect(values).toContain(DYNAMIC_MAX);
   });
 });
 
 // ─────────────────────────────────────────────────────────────
-// FORM DEFAULT STATE — Validates the initial filter config
+// FORM DEFAULT STATE
 // ─────────────────────────────────────────────────────────────
 
 describe("Default form state", () => {
-  it("FAILS: default max price should cover all vehicles, not be unlimited sentinel", () => {
-    const FORM_DEFAULT_PRICE_MAX = 100;
-    const MAX_VEHICLE_RATE_DOLLARS =
+  it("default max price covers all vehicles", () => {
+    const maxRateDollars =
       Math.max(...VEHICLES.map((v) => v.hourly_rate_cents)) / 100;
 
-    // The form default max should be >= the highest vehicle rate.
-    // Currently 100 < 220, so this fails.
-    expect(FORM_DEFAULT_PRICE_MAX).toBeGreaterThanOrEqual(
-      MAX_VEHICLE_RATE_DOLLARS,
-    );
+    expect(DYNAMIC_MAX).toBeGreaterThanOrEqual(maxRateDollars);
   });
 
   it("renders all classification toggles", () => {
     render(<Wrapper />);
 
     for (const classification of filterOptions.classifications) {
-      // Radix ToggleGroup may render text in multiple spans; use queryAll
       const matches = screen.queryAllByText(classification);
       expect(matches.length).toBeGreaterThan(0);
     }
@@ -177,7 +163,6 @@ describe("Default form state", () => {
 
   it("renders the Reset all button", () => {
     render(<Wrapper />);
-    // Use queryAll since Radix may duplicate button internals
     const buttons = screen.getAllByRole("button").filter(
       (el) => el.textContent?.trim() === "Reset all",
     );

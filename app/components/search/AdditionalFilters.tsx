@@ -32,13 +32,13 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
               <FormLabel>Price</FormLabel>
               <div className="text-sm">
                 {formatDollars(minPrice)} to{" "}
-                {maxPrice === 100 ? "$100+" : formatDollars(maxPrice)}
+                {maxPrice >= filterOptions.maxPrice ? `${formatDollars(filterOptions.maxPrice)}+` : formatDollars(maxPrice)}
               </div>
             </div>
             <FormControl>
               <RangeSlider
                 min={10}
-                max={100}
+                max={filterOptions.maxPrice}
                 step={10}
                 value={field.value}
                 onValueChange={field.onChange}
@@ -138,7 +138,7 @@ export function AdditionalFilters({ filterOptions }: { filterOptions: FilterOpti
           form.getValues().minPassengers === 1 &&
           form.getValues().make === undefined &&
           form.getValues().price[0] === 10 &&
-          form.getValues().price[1] === 100
+          form.getValues().price[1] === filterOptions.maxPrice
         }
       >
         Reset all

@@ -76,7 +76,8 @@ function searchVehicles(input: {
   } = input;
 
   const parsedPriceMin = priceMin;
-  const parsedPriceMax = priceMax === 100 ? Number.MAX_SAFE_INTEGER : priceMax;
+  const { maxPrice } = getFilterOptions();
+  const parsedPriceMax = priceMax >= maxPrice ? Number.MAX_SAFE_INTEGER : priceMax;
 
   try {
     const { start, end } = parseAndValidateTimeRange(startTime, endTime);
@@ -106,6 +107,7 @@ export interface FilterOptions {
   makes: string[];
   classifications: string[];
   passengerCounts: number[];
+  maxPrice: number;
 }
 
 function getFilterOptions(): FilterOptions {
@@ -118,11 +120,16 @@ function getFilterOptions(): FilterOptions {
   const uniquePassengerCounts = [
     ...new Set(allVehicles.map((v) => v.max_passengers)),
   ].sort((a, b) => a - b);
+  const maxPrice =
+    Math.ceil(
+      Math.max(...allVehicles.map((v) => v.hourly_rate_cents)) / 100 / 10,
+    ) * 10;
 
   return {
     makes: uniqueMakes,
     classifications: uniqueClassifications,
     passengerCounts: uniquePassengerCounts,
+    maxPrice,
   };
 }
 

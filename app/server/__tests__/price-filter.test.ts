@@ -20,6 +20,8 @@ const ALL_MAKES = [
   ...new Set(VEHICLES.map((v) => v.make)),
 ];
 
+const { maxPrice: DYNAMIC_MAX } = API.getFilterOptions();
+
 // Helper: search with only price constraints (everything else permissive)
 function searchByPrice(priceMin: number, priceMax: number) {
   return API.searchVehicles({
@@ -46,16 +48,11 @@ function getByPrice(priceMinDollars: number, priceMaxDollars: number) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// USER COMPLAINT TESTS — These FAIL against the current code,
-// proving the bug described in .context/BUG.md
+// USER COMPLAINT TESTS — These now PASS with the bug fix
 // ─────────────────────────────────────────────────────────────
 
 describe("User complaint: 'I want to hide results above $125/hr'", () => {
   it("should exclude vehicles above $125/hr when max is set to 125", () => {
-    // The slider cannot represent $125 — its max is $100.
-    // Even if we could pass 125 to the API layer, the slider prevents it.
-    // This test passes 125 directly to getAvailableVehicles to show
-    // the data layer CAN filter correctly — the bug is in the UI constraint.
     const results = getByPrice(10, 125);
     const rates = results.map((v) => v.hourly_rate_cents);
 
@@ -69,16 +66,11 @@ describe("User complaint: 'I want to hide results above $125/hr'", () => {
     expect(names).not.toContain("Mercedes-Benz C-Class");
   });
 
-  it("FAILS: slider max of 100 means the user cannot set a $125 cap via the UI", () => {
-    const SLIDER_MAX = 100;
-
-    // The closest the user can get is priceMax = 100 (the slider's max),
-    // but that triggers the "unlimited" sentinel in searchVehicles.
-    const result = searchByPrice(10, SLIDER_MAX);
+  it("setting priceMax to $100 correctly excludes vehicles above $100/hr", () => {
+    const result = searchByPrice(10, 100);
     const names = result.vehicles.map((v) => `${v.make} ${v.model}`);
 
-    // User expects: no vehicles above $125/hr
-    // Bug: priceMax=100 → unlimited, so expensive vehicles appear
+    // priceMax=100 now correctly filters (no longer triggers unlimited)
     expect(names).not.toContain("Ford Mustang"); // $160/hr
     expect(names).not.toContain("BMW X5"); // $170/hr
     expect(names).not.toContain("Mercedes-Benz C-Class"); // $220/hr
@@ -86,7 +78,7 @@ describe("User complaint: 'I want to hide results above $125/hr'", () => {
 });
 
 describe("User complaint: 'MY BUDGET IS $100 PER HOUR BUT IT'S SHOWING ME VERY EXPENSIVE CARS'", () => {
-  it("FAILS: setting priceMax to $100 should only show vehicles ≤ $100/hr", () => {
+  it("setting priceMax to $100 should only show vehicles ≤ $100/hr", () => {
     const result = searchByPrice(10, 100);
     const rates = result.vehicles.map((v) => v.hourly_rate_cents);
 
@@ -94,21 +86,21 @@ describe("User complaint: 'MY BUDGET IS $100 PER HOUR BUT IT'S SHOWING ME VERY E
     expect(rates.every((r) => r <= 10000)).toBe(true);
   });
 
-  it("FAILS: setting priceMax to $100 should not include the $220/hr Mercedes", () => {
+  it("setting priceMax to $100 should not include the $220/hr Mercedes", () => {
     const result = searchByPrice(10, 100);
     const names = result.vehicles.map((v) => `${v.make} ${v.model}`);
 
     expect(names).not.toContain("Mercedes-Benz C-Class");
   });
 
-  it("FAILS: setting priceMax to $100 should not include the $160/hr Mustang", () => {
+  it("setting priceMax to $100 should not include the $160/hr Mustang", () => {
     const result = searchByPrice(10, 100);
     const names = result.vehicles.map((v) => `${v.make} ${v.model}`);
 
     expect(names).not.toContain("Ford Mustang");
   });
 
-  it("FAILS: setting priceMax to $100 should not include the $170/hr BMW X5", () => {
+  it("setting priceMax to $100 should not include the $170/hr BMW X5", () => {
     const result = searchByPrice(10, 100);
     const names = result.vehicles.map((v) => `${v.make} ${v.model}`);
 
@@ -117,18 +109,21 @@ describe("User complaint: 'MY BUDGET IS $100 PER HOUR BUT IT'S SHOWING ME VERY E
 });
 
 // ─────────────────────────────────────────────────────────────
-// SENTINEL / UNLIMITED LOGIC — Documents the buggy behavior
+// SENTINEL / UNLIMITED LOGIC — Now uses dynamic max
 // ─────────────────────────────────────────────────────────────
 
-describe("searchVehicles sentinel: priceMax === 100 treated as unlimited", () => {
-  it("priceMax=100 returns vehicles above $100/hr (bug: unlimited)", () => {
+describe("searchVehicles sentinel: dynamic max triggers unlimited", () => {
+  it("priceMax=100 now correctly caps results at $100/hr", () => {
     const result = searchByPrice(10, 100);
-    const maxRate = Math.max(
-      ...result.vehicles.map((v) => v.hourly_rate_cents),
-    );
+    const rates = result.vehicles.map((v) => v.hourly_rate_cents);
 
-    // This PASSES — documenting the bug. The max rate returned is $220.
-    expect(maxRate).toBeGreaterThan(10000);
+    expect(rates.every((r) => r <= 10000)).toBe(true);
+    expect(rates.length).toBeGreaterThan(0);
+  });
+
+  it("priceMax at dynamic max triggers unlimited (returns all vehicles)", () => {
+    const result = searchByPrice(10, DYNAMIC_MAX);
+    expect(result.vehicles.length).toBe(VEHICLES.length);
   });
 
   it("priceMax=90 correctly caps results at $90/hr", () => {
@@ -143,16 +138,21 @@ describe("searchVehicles sentinel: priceMax === 100 treated as unlimited", () =>
     const result = searchByPrice(10, 99);
     const rates = result.vehicles.map((v) => v.hourly_rate_cents);
 
-    // $99 → 9900 cents. Should exclude Mustang/X5/C-Class and also Wrangler ($85)
     expect(rates.every((r) => r <= 9900)).toBe(true);
   });
 
   it("priceMax=101 correctly caps results (no unlimited trigger)", () => {
-    // Values above 100 but not equal to 100 work fine
     const result = searchByPrice(10, 101);
     const rates = result.vehicles.map((v) => v.hourly_rate_cents);
 
     expect(rates.every((r) => r <= 10100)).toBe(true);
+  });
+
+  it("priceMax just below dynamic max still filters", () => {
+    const result = searchByPrice(10, DYNAMIC_MAX - 1);
+    const rates = result.vehicles.map((v) => v.hourly_rate_cents);
+
+    expect(rates.every((r) => r <= (DYNAMIC_MAX - 1) * 100)).toBe(true);
   });
 });
 
@@ -243,46 +243,40 @@ describe("getAvailableVehicles: price filtering (data layer)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────
-// SLIDER RANGE COVERAGE — Validates the slider's range is
-// insufficient for the actual vehicle catalog
+// SLIDER RANGE COVERAGE — Validates dynamic max covers catalog
 // ─────────────────────────────────────────────────────────────
 
 describe("Slider range vs vehicle catalog", () => {
   const SLIDER_MIN = 10;
-  const SLIDER_MAX = 100;
   const SLIDER_STEP = 10;
 
-  it("FAILS: slider max should cover the most expensive vehicle", () => {
+  it("dynamic slider max covers the most expensive vehicle", () => {
     const maxRateDollars = Math.max(
       ...VEHICLES.map((v) => v.hourly_rate_cents),
     ) / 100;
 
-    // Most expensive vehicle is $220/hr. Slider max must be ≥ $220.
-    expect(SLIDER_MAX).toBeGreaterThanOrEqual(maxRateDollars);
+    expect(DYNAMIC_MAX).toBeGreaterThanOrEqual(maxRateDollars);
+  });
+
+  it("dynamic max is rounded up to nearest $10", () => {
+    expect(DYNAMIC_MAX % 10).toBe(0);
   });
 
   it("all possible slider positions are valid steps", () => {
     const positions: number[] = [];
-    for (let v = SLIDER_MIN; v <= SLIDER_MAX; v += SLIDER_STEP) {
+    for (let v = SLIDER_MIN; v <= DYNAMIC_MAX; v += SLIDER_STEP) {
       positions.push(v);
     }
-    // 10, 20, 30, ..., 100 → 10 positions
-    expect(positions).toHaveLength(10);
     expect(positions[0]).toBe(10);
-    expect(positions[positions.length - 1]).toBe(100);
+    expect(positions[positions.length - 1]).toBe(DYNAMIC_MAX);
+    expect(positions.length).toBeGreaterThan(0);
   });
 
-  it("vehicles above $100/hr are unreachable by slider", () => {
+  it("no vehicles are unreachable by the dynamic slider max", () => {
     const unreachable = VEHICLES.filter(
-      (v) => v.hourly_rate_cents > SLIDER_MAX * 100,
+      (v) => v.hourly_rate_cents > DYNAMIC_MAX * 100,
     );
-    // 3 vehicles are above $100/hr — Mustang, X5, C-Class
-    expect(unreachable).toHaveLength(3);
-    expect(unreachable.map((v) => v.model).sort()).toEqual([
-      "C-Class",
-      "Mustang",
-      "X5",
-    ]);
+    expect(unreachable).toHaveLength(0);
   });
 });
 
@@ -313,7 +307,7 @@ describe("API.searchVehicles: edge cases", () => {
       classifications: ALL_CLASSIFICATIONS,
       makes: ALL_MAKES,
       priceMin: 10,
-      priceMax: 100,
+      priceMax: DYNAMIC_MAX,
     });
     const names = result.vehicles.map((v) => v.model);
     expect(names).toContain("Santa Fe");
@@ -332,7 +326,7 @@ describe("API.searchVehicles: edge cases", () => {
       classifications: ["Sports"],
       makes: ALL_MAKES,
       priceMin: 10,
-      priceMax: 100, // unlimited due to bug
+      priceMax: DYNAMIC_MAX,
     });
     // Only Mustang is Sports class
     expect(result.vehicles).toHaveLength(1);
@@ -347,7 +341,7 @@ describe("API.searchVehicles: edge cases", () => {
       classifications: ALL_CLASSIFICATIONS,
       makes: ["Toyota"],
       priceMin: 10,
-      priceMax: 100, // unlimited due to bug
+      priceMax: DYNAMIC_MAX,
     });
     expect(result.vehicles).toHaveLength(1);
     expect(result.vehicles[0].model).toBe("Corolla");
@@ -359,12 +353,19 @@ describe("API.searchVehicles: edge cases", () => {
 // ─────────────────────────────────────────────────────────────
 
 describe("API.getFilterOptions", () => {
-  it("FAILS: should include a max price that covers all vehicles", () => {
+  it("includes a maxPrice that covers all vehicles", () => {
     const options = API.getFilterOptions();
-    // getFilterOptions currently returns makes, classifications, passengerCounts
-    // but NOT a price max — the slider is hardcoded. This test asserts that
-    // the API SHOULD provide a maxPrice so the slider can be dynamic.
     expect(options).toHaveProperty("maxPrice");
+
+    const maxRateDollars = Math.max(
+      ...VEHICLES.map((v) => v.hourly_rate_cents),
+    ) / 100;
+    expect(options.maxPrice).toBeGreaterThanOrEqual(maxRateDollars);
+  });
+
+  it("maxPrice is rounded to nearest $10", () => {
+    const options = API.getFilterOptions();
+    expect(options.maxPrice % 10).toBe(0);
   });
 
   it("returns all unique makes sorted", () => {

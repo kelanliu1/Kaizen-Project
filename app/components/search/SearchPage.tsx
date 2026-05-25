@@ -36,7 +36,7 @@ export function SearchPage() {
       minPassengers: 1,
       classification: filterOptions.classifications,
       make: filterOptions.makes,
-      price: [10, 100],
+      price: [10, filterOptions.maxPrice],
     },
   });
 
