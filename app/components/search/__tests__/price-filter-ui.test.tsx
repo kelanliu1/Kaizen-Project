@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import React from "react";
-import { useForm, FormProvider } from "react-hook-form";
+import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { AdditionalFilters } from "../AdditionalFilters";
 import { API } from "@/server/api";
 import type { FormValues } from "../form";
@@ -32,44 +33,64 @@ function Wrapper({
   return (
     <FormProvider {...form}>
       <AdditionalFilters filterOptions={filterOptions} />
+      <FormSpy />
     </FormProvider>
   );
 }
 
+// Renders current form price values as a data attribute for test assertions
+function FormSpy() {
+  const form = useFormContext<FormValues>();
+  const price = form.watch("price");
+  return <div data-testid="form-spy" data-price={JSON.stringify(price)} />;
+}
+
+function getFormPrice(container: HTMLElement): [number, number] {
+  const spy = container.querySelector('[data-testid="form-spy"]')!;
+  return JSON.parse(spy.getAttribute("data-price")!);
+}
+
+// Helper: get the price input elements scoped to a render container
+function getPriceInputs(container: HTMLElement) {
+  const min = container.querySelector<HTMLInputElement>('[data-price-input="min"]')!;
+  const max = container.querySelector<HTMLInputElement>('[data-price-input="max"]')!;
+  return { min, max };
+}
+
 // ─────────────────────────────────────────────────────────────
-// DISPLAY LABEL TESTS
+// PRICE INPUT DISPLAY TESTS
 // ─────────────────────────────────────────────────────────────
 
-describe("Price filter label display", () => {
-  it("default price range shows dynamic max with '+' suffix", () => {
-    render(<Wrapper />);
+describe("Price filter inputs display", () => {
+  it("default price range shows min=10 and max with '+' suffix in inputs", () => {
+    const { container } = render(<Wrapper />);
+    const { min, max } = getPriceInputs(container);
 
-    // At the dynamic max, the label shows "${max}+"
-    const maxLabel = `$${DYNAMIC_MAX}+`;
-    const matches = screen.queryAllByText(new RegExp(`\\$${DYNAMIC_MAX}\\+`));
-    expect(matches.length).toBeGreaterThan(0);
+    expect(min.value).toBe("10");
+    expect(max.value).toBe(`${DYNAMIC_MAX}+`);
   });
 
-  it("$100 now displays as '$100' (a real cap, not unlimited)", () => {
-    render(<Wrapper defaultPrice={[10, 100]} />);
+  it("$100 displays as '100' (a real cap, not unlimited) in the max input", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 100]} />);
+    const { max } = getPriceInputs(container);
 
-    // $100 should render as "$100" — no "+" suffix
-    expect(screen.getAllByText(/\$100/).length).toBeGreaterThan(0);
-    expect(screen.queryAllByText(/\$100\+/)).toHaveLength(0);
+    expect(max.value).toBe("100");
   });
 
-  it("renders the price label with min and max values", () => {
-    render(<Wrapper defaultPrice={[20, 80]} />);
+  it("renders price inputs with correct values for custom range", () => {
+    const { container } = render(<Wrapper defaultPrice={[20, 80]} />);
+    const { min, max } = getPriceInputs(container);
 
-    expect(screen.getAllByText(/\$20/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/\$80/).length).toBeGreaterThan(0);
+    expect(min.value).toBe("20");
+    expect(max.value).toBe("80");
   });
 
-  it("shows exact dollar amount when slider is below max", () => {
-    render(<Wrapper defaultPrice={[10, 90]} />);
+  it("shows exact value when max is below dynamic max", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 90]} />);
+    const { max } = getPriceInputs(container);
 
-    expect(screen.getAllByText(/\$90/).length).toBeGreaterThan(0);
-    expect(screen.queryAllByText(/\$90\+/)).toHaveLength(0);
+    expect(max.value).toBe("90");
+    expect(max.value).not.toContain("+");
   });
 });
 
@@ -167,5 +188,183 @@ describe("Default form state", () => {
       (el) => el.textContent?.trim() === "Reset all",
     );
     expect(buttons.length).toBeGreaterThan(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// EDITABLE PRICE INPUTS — bidirectional sync with slider
+// ─────────────────────────────────────────────────────────────
+
+describe("Editable price inputs", () => {
+  it("typing in min input and blurring updates the form value", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 200]} />);
+    const { min } = getPriceInputs(container);
+
+    fireEvent.focus(min);
+    fireEvent.change(min, { target: { value: "50" } });
+    fireEvent.blur(min);
+
+    const price = getFormPrice(container);
+    expect(price[0]).toBe(50);
+    expect(price[1]).toBe(200);
+  });
+
+  it("typing in max input and blurring updates the form value", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 200]} />);
+    const { max } = getPriceInputs(container);
+
+    fireEvent.focus(max);
+    fireEvent.change(max, { target: { value: "150" } });
+    fireEvent.blur(max);
+
+    const price = getFormPrice(container);
+    expect(price[0]).toBe(10);
+    expect(price[1]).toBe(150);
+  });
+
+  it("pressing Enter in min input commits the value", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 200]} />);
+    const { min } = getPriceInputs(container);
+
+    fireEvent.focus(min);
+    fireEvent.change(min, { target: { value: "60" } });
+    fireEvent.keyDown(min, { key: "Enter" });
+
+    const price = getFormPrice(container);
+    expect(price[0]).toBe(60);
+  });
+
+  it("pressing Enter in max input commits the value", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 200]} />);
+    const { max } = getPriceInputs(container);
+
+    fireEvent.focus(max);
+    fireEvent.change(max, { target: { value: "130" } });
+    fireEvent.keyDown(max, { key: "Enter" });
+
+    const price = getFormPrice(container);
+    expect(price[1]).toBe(130);
+  });
+
+  it("min input value snaps to nearest step on blur", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 200]} />);
+    const { min } = getPriceInputs(container);
+
+    fireEvent.focus(min);
+    fireEvent.change(min, { target: { value: "37" } });
+    fireEvent.blur(min);
+
+    // 37 rounds to 40 (nearest step of 10)
+    const price = getFormPrice(container);
+    expect(price[0]).toBe(40);
+    expect(min.value).toBe("40");
+  });
+
+  it("max input value snaps to nearest step on blur", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 200]} />);
+    const { max } = getPriceInputs(container);
+
+    fireEvent.focus(max);
+    fireEvent.change(max, { target: { value: "143" } });
+    fireEvent.blur(max);
+
+    // 143 rounds to 140
+    const price = getFormPrice(container);
+    expect(price[1]).toBe(140);
+    expect(max.value).toBe("140");
+  });
+
+  it("min input is clamped to not exceed current max", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 80]} />);
+    const { min } = getPriceInputs(container);
+
+    fireEvent.focus(min);
+    fireEvent.change(min, { target: { value: "150" } });
+    fireEvent.blur(min);
+
+    // Should clamp to 80 (the current max)
+    const price = getFormPrice(container);
+    expect(price[0]).toBe(80);
+  });
+
+  it("max input is clamped to not go below current min", () => {
+    const { container } = render(<Wrapper defaultPrice={[50, 200]} />);
+    const { max } = getPriceInputs(container);
+
+    fireEvent.focus(max);
+    fireEvent.change(max, { target: { value: "20" } });
+    fireEvent.blur(max);
+
+    // Should clamp to 50 (the current min)
+    const price = getFormPrice(container);
+    expect(price[1]).toBe(50);
+  });
+
+  it("max input is clamped to not exceed slider max", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 200]} />);
+    const { max } = getPriceInputs(container);
+
+    fireEvent.focus(max);
+    fireEvent.change(max, { target: { value: "999" } });
+    fireEvent.blur(max);
+
+    const price = getFormPrice(container);
+    expect(price[1]).toBe(DYNAMIC_MAX);
+  });
+
+  it("min input is clamped to slider minimum", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 200]} />);
+    const { min } = getPriceInputs(container);
+
+    fireEvent.focus(min);
+    fireEvent.change(min, { target: { value: "2" } });
+    fireEvent.blur(min);
+
+    const price = getFormPrice(container);
+    expect(price[0]).toBe(10);
+  });
+
+  it("non-numeric min input falls back to slider minimum", () => {
+    const { container } = render(<Wrapper defaultPrice={[50, 200]} />);
+    const { min } = getPriceInputs(container);
+
+    fireEvent.focus(min);
+    fireEvent.change(min, { target: { value: "abc" } });
+    fireEvent.blur(min);
+
+    const price = getFormPrice(container);
+    expect(price[0]).toBe(10);
+  });
+
+  it("non-numeric max input falls back to slider maximum", () => {
+    const { container } = render(<Wrapper defaultPrice={[10, 100]} />);
+    const { max } = getPriceInputs(container);
+
+    fireEvent.focus(max);
+    fireEvent.change(max, { target: { value: "xyz" } });
+    fireEvent.blur(max);
+
+    const price = getFormPrice(container);
+    expect(price[1]).toBe(DYNAMIC_MAX);
+  });
+
+  it("max input shows raw number when focused at dynamic max", () => {
+    const { container } = render(<Wrapper />);
+    const { max } = getPriceInputs(container);
+
+    // Before focus: shows "220+"
+    expect(max.value).toBe(`${DYNAMIC_MAX}+`);
+
+    // After focus: shows raw number for editing
+    fireEvent.focus(max);
+    expect(max.value).toBe(String(DYNAMIC_MAX));
+  });
+
+  it("slider updates are reflected in the input values", () => {
+    const { container } = render(<Wrapper defaultPrice={[30, 150]} />);
+    const { min, max } = getPriceInputs(container);
+
+    expect(min.value).toBe("30");
+    expect(max.value).toBe("150");
   });
 });
