@@ -5,12 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # Start dev server (Next.js)
-npm run build    # Production build
-npm run ts       # Type-check (tsc --noEmit)
+npm run dev        # Start dev server (Next.js)
+npm run build      # Production build
+npm run ts         # Type-check (tsc --noEmit)
+npm test           # Run all tests (vitest)
+npm run test:watch # Run tests in watch mode
 ```
 
-No test framework is configured.
+Tests use **vitest** with `@testing-library/react` and jsdom. Test files live in `__tests__/` directories adjacent to the code they test.
 
 ## Architecture
 
