@@ -1,12 +1,17 @@
 # Decisions
 
+See also:
+- [BUG.md](./BUG.md) — Full diagnosis of the price filter slider bug (root cause, affected files, proposed fix)
+- [FEATURE_DESIGN.md](./FEATURE_DESIGN.md) — Discount system design (requirements, data model, implementation plan, edge cases, UI sketches)
+- [REFACTOR.md](./REFACTOR.md) — Refactor audit findings organized by severity
+
 ## 1. Price Slider Bug Fix
 
-The price filter slider was hardcoded to a max of $100, but three vehicles had rates up to $220/hr. Worse, the value $100 doubled as an "unlimited" sentinel in the API layer, so users could never actually cap results at $100 — it silently meant "show everything." We replaced the hardcoded max with a dynamic value computed from the vehicle catalog (`getFilterOptions().maxPrice`), moved the unlimited sentinel to that dynamic max, and added editable text inputs alongside the slider so users can type exact dollar amounts.
+The price filter slider was hardcoded to a max of $100, but three vehicles had rates up to $220/hr. Worse, the value $100 doubled as an "unlimited" sentinel in the API layer, so users could never actually cap results at $100 — it silently meant "show everything." We replaced the hardcoded max with a dynamic value computed from the vehicle catalog (`getFilterOptions().maxPrice`), moved the unlimited sentinel to that dynamic max, and added editable text inputs alongside the slider so users can type exact dollar amounts. See [BUG.md](./BUG.md) for the full root cause analysis.
 
 ## 2. Refactor
 
-We audited the codebase for issues that would confuse a new developer or introduce subtle bugs, then applied fixes in priority order.
+We audited the codebase for issues that would confuse a new developer or introduce subtle bugs, then applied fixes in priority order. See [REFACTOR.md](./REFACTOR.md) for the full audit findings.
 
 ### High priority
 
@@ -44,6 +49,8 @@ We audited the codebase for issues that would confuse a new developer or introdu
 - **Confirm reservation is a dead button.** `handleConfirm` logs an error to the console with no user feedback. At minimum it should show a toast or disabled tooltip explaining it's not yet implemented.
 
 ## 5. Technical Tradeoffs
+
+See [FEATURE_DESIGN.md](./FEATURE_DESIGN.md) for the discount system's data model, implementation plan, and edge case handling.
 
 ### Bug fix
 
